@@ -208,7 +208,7 @@ body.og #treeWrap:before{inset:0 40px 18px;border-radius:18px}
     <div class="ac search" id="acWelcome"><svg viewBox="0 0 24 24"><circle cx="11" cy="11" r="7"/><path d="M20 20l-3.5-3.5"/></svg><input id="wq" type="search" placeholder="Type your name…" autocomplete="off" aria-label="Search your name"></div>
     <button class="skip" id="wSkip">I’m not on the tree, just browsing</button>
     <div class="wrel"><span>…or, I’m related to</span><div class="ac search" id="acRel"><svg viewBox="0 0 24 24"><circle cx="11" cy="11" r="7"/><path d="M20 20l-3.5-3.5"/></svg><input id="wr" type="search" placeholder="Search a relative…" autocomplete="off" aria-label="Search the person you are related to"></div></div>
-    <div class="fine">Your choice is remembered only on this device.</div>
+    <div class="fine">Your choice is remembered on this device.<br>Your selection is shared anonymously with the site owner to see who’s visiting.</div>
   </div>
 </div>
 <main>
@@ -439,6 +439,7 @@ function stepText(path,k){const [i,t]=path[k];const prev=path[k-1][0];
   return {who:i,txt:`${disp(prev)}’s ${w}`,mar:t==="spouse"}}
 function relate(a,b){const out=$("#relOut");if(a==null||b==null){out.innerHTML=`<div class="rel">Choose both people from the suggestions.</div>`;return}
   if(a===b){out.innerHTML=`<div class="rel"><div class="big">That’s the same person.</div></div>`;return}
+  track(`kinship/${P[a].n} → ${P[b].n}`,`Kinship: ${P[a].n} → ${P[b].n}`);
   const path=shortest(a,b);const blood=closestBlood(a,b);
   if(!path){out.innerHTML=`<div class="rel"><div class="big">No connection found</div>${esc(disp(a))} and ${esc(disp(b))} are not linked by any chain of parent, child or spouse records in this file.</div>`;return}
   const parts=describe(path);const marriages=path.filter(s=>s[1]==="spouse").length;
@@ -502,13 +503,20 @@ function statsPane(){const sur=new Map();let m=0,f=0,u=0,ph=0,lv=0,withB=0,minB=
   $("#p-stats").addEventListener("click",e=>{const t=e.target.closest("[data-sur]");if(t) showSur(t.dataset.sur)})}
 statsPane();
 // ---------- start ----------
+// ---------- analytics (GoatCounter; optional, never required) ----------
+const gcQ=[];let gcTimer=null;
+function gcFlush(){try{const g=window.goatcounter;if(g&&typeof g.count==="function"){while(gcQ.length){const o=gcQ.shift();try{g.count(o)}catch(e){}}clearInterval(gcTimer);gcTimer=null;return true}}catch(e){}return false}
+function track(path,title){try{if(document.body.classList.contains("og")) return;gcQ.push({path,title:title||path,event:true});
+  if(!gcFlush()&&!gcTimer){let n=0;gcTimer=setInterval(()=>{if(gcFlush()||++n>40){clearInterval(gcTimer);gcTimer=null}},500)}}catch(e){}}
 // ---------- "you" ----------
 const LS="ancestryTree.you";
 let browse=false,relTo=null;
 function loadYou(){try{const v=JSON.parse(localStorage.getItem(LS)||"null");if(!v) return null;
   if(v.browse){browse=true;if(v.rel!=null&&P[v.rel]&&P[v.rel].n===v.rn) relTo=v.rel;return null}
   if(P[v.i]&&P[v.i].n===v.n) return v.i}catch(e){}return null}
-function setYou(i){you=i;browse=false;relTo=null;try{localStorage.setItem(LS,JSON.stringify({i,n:P[i].n}))}catch(e){}youBox();acA.set(i)}
+function setYou(i){let prev=null;try{prev=JSON.parse(localStorage.getItem(LS)||"null")}catch(e){}
+  if(!(prev&&prev.i===i&&prev.n===P[i].n)) track("identified/"+P[i].n,"Identified: "+P[i].n);
+  you=i;browse=false;relTo=null;try{localStorage.setItem(LS,JSON.stringify({i,n:P[i].n}))}catch(e){}youBox();acA.set(i)}
 function setBrowse(r){you=null;browse=true;relTo=r;try{localStorage.setItem(LS,JSON.stringify(r!=null?{browse:true,rel:r,rn:P[r].n}:{browse:true}))}catch(e){}youBox();{const r=$("#ra");r.value="";delete r.dataset.id}if(r!=null) acA.set(r)}
 function youBox(){const b=$("#youBox");
   b.innerHTML=you!=null?`<span>You: <b>${esc(disp(you))}</b></span><button class="linkbtn" id="chgYou">Not you? Change</button>`:`<span>${browse?relTo!=null?`Related to <b>${esc(disp(relTo))}</b>`:"Browsing":""}</span><button class="${browse?"linkbtn":"btn"}" id="chgYou">${browse?"Find yourself · Change":"Find yourself"}</button>`;
@@ -516,8 +524,8 @@ function youBox(){const b=$("#youBox");
 function showWelcome(){const w=$("#welcome");w.hidden=false;$("#wq").value="";setTimeout(()=>$("#wq").focus(),50)}
 function hideWelcome(){$("#welcome").hidden=true}
 autocomplete($("#acWelcome"),i=>{setYou(i);hideWelcome();select(i);tab("person")});
-$("#wSkip").onclick=()=>{setBrowse(null);hideWelcome();select(M.home)};
-autocomplete($("#acRel"),i=>{setBrowse(i);hideWelcome();select(i);tab("person")});
+$("#wSkip").onclick=()=>{track("browsing","Just browsing");setBrowse(null);hideWelcome();select(M.home)};
+autocomplete($("#acRel"),i=>{track("related-to/"+P[i].n,"Related to: "+P[i].n);setBrowse(i);hideWelcome();select(i);tab("person")});
 $("#welcome").addEventListener("click",e=>{if(e.target.id==="welcome") hideWelcome()});
 document.addEventListener("keydown",e=>{if(e.key==="Escape"&&!$("#welcome").hidden) hideWelcome()});
 you=loadYou();
@@ -532,5 +540,6 @@ function panTo(i){const n=vp.querySelector(`.node[data-id="${i}"]`);if(!n) retur
 window.FT={panTo,get pathZoom(){return PZ.view},get treeZoom(){return TZ.view},setYou,get you(){return you},get browse(){return browse},get relTo(){return relTo},home:M.home,select,relate,search,shortest,describe,closestBlood,term,find:n=>P.findIndex(p=>p.n===n),get current(){return current}};
 })();
 </script>
+<script data-goatcounter="https://ancestry-tree.goatcounter.com/count" async src="//gc.zgo.at/count.js"></script>
 </body>
 </html>
