@@ -323,8 +323,13 @@ function layout(c,UP,DOWN){
   expand(nodes,links);
   return {nodes,links}}
 // ---------- expand arrows: siblings (+spouses) and children, inserted as clean columns ----------
+// which side of a box is open: siblings are revealed there and the chevron points that way
+let MARS=[];const freeAt=(n,nodes,dir)=>!nodes.some(m=>m!==n&&m.y===n.y&&dir*(m.x-n.x)>0&&(dir*(m.x-n.x)<1.9||MARS.some(L=>(L.a===n&&L.b===m)||(L.b===n&&L.a===m))));
+function sideOf(n,nodes,g){const fl=freeAt(n,nodes,-1),fr=freeAt(n,nodes,1);if(fl&&!fr) return "L";if(fr&&!fl) return "R";
+  return fl&&fr?"R":"T"}
+const SIDE=new Map();
 const EXS=new Set(),EXK=new Set(),EXP=new Set();const fn=i=>(P[i].g||disp(i)).split(" ")[0];
-function expand(nodes,links){const shown=new Set(nodes.map(n=>n.i));const base=nodes.slice();
+function expand(nodes,links){MARS=links.filter(L=>L.t==="mar");const shown=new Set(nodes.map(n=>n.i));const base=nodes.slice();
   for(const n of base){n.sib=siblingsOf(n.i).some(s=>!shown.has(s));n.kid=(n.role==="center"||n.role==="desc")&&childrenOf(n.i).some(c=>!shown.has(c))}
   const mk=(p,y,role)=>{shown.add(p);const t={i:p,y,role,sp:[],kids:[]};for(const s of spousesOf(p)) if(!shown.has(s)){shown.add(s);t.sp.push(s)}
     const ck=childrenOf(p).filter(c=>!shown.has(c));t.kid=ck.length>0;if(EXK.has(p)) for(const c of ck) if(!shown.has(c)) t.kids.push(mk(c,y+1,"xk"));
@@ -336,7 +341,7 @@ function expand(nodes,links){const shown=new Set(nodes.map(n=>n.i));const base=n
   const group=n=>{const g=new Set([n]);let ch=true;while(ch){ch=false;for(const L of links) if(L.t==="mar"&&base.includes(L.a)&&base.includes(L.b)&&(g.has(L.a)!==g.has(L.b))){g.add(L.a);g.add(L.b);ch=true}}return [...g]};
   const insert=(c,trees)=>{const W=trees.reduce((a,t)=>a+t.w,0);for(const n of nodes) if(n.x>c-1+1e-6) n.x+=W;let x=c;return trees.map(t=>{const r=place(t,x);x+=t.w;return r})};
   for(const n of base){
-    if(n.sib){const g=group(n);const left=n.role==="anc"&&g.some(o=>o.x>n.x);n.side=left?"L":"R";
+    if(n.sib){const g=group(n);n.side=EXS.has(n.i)&&SIDE.has(n.i)?SIDE.get(n.i):sideOf(n,nodes,g);const left=n.side==="L";
       if(EXS.has(n.i)){const trees=siblingsOf(n.i).filter(s=>!shown.has(s)).map(s=>mk(s,n.y,"xs"));
         if(trees.length){const c=left?Math.min(...g.map(o=>o.x)):Math.max(...g.map(o=>o.x))+1;const sib=insert(c,trees);
           const L=links.find(L=>L.t==="kids"&&L.kids.includes(n));if(L) L.kids.push(...sib);else links.push({t:"kids",from:null,kids:[n,...sib]});links.push({t:"lab",text:fn(n.i)+"’s siblings",ns:sib,row:n.y})}}}
@@ -390,8 +395,8 @@ const vp=$("#vp"),svg=$("#tree");let bbox=null,centerPt=null;
 const TZ=panZoom(svg,vp,i=>select(i),b=>toggleX(b)),view=TZ.view;
 svg.addEventListener("keydown",e=>{const b=e.target.closest&&e.target.closest(".xbtn");if(b&&(e.key==="Enter"||e.key===" ")){e.preventDefault();toggleX(b)}});
 const XS={sib:EXS,kids:EXK,par:EXP};
-function xang(kind,side,on){return kind==="kids"?(on?-90:90):kind==="par"?(on?90:-90):((side==="L")!==on?180:0)}
-function xbtn(g,kind,n){const on=XS[kind].has(n.i);const ax=n.x*SX+(kind==="sib"?(n.side==="L"?0:BW):BW/2),ay=n.y*SY+(kind==="kids"?BH+4:kind==="par"?-7:n.side==="L"?16:BH-16);
+function xang(kind,side,on){return kind==="kids"?(on?-90:90):kind==="par"?(on?90:-90):side==="T"?(on?90:-90):((side==="L")!==on?180:0)}
+function xbtn(g,kind,n){const on=XS[kind].has(n.i);const ax=n.x*SX+(kind==="sib"?(n.side==="L"?0:n.side==="T"?BW-24:BW):BW/2),ay=n.y*SY+(kind==="kids"?BH+4:kind==="par"?-7:n.side==="T"?-7:BH/2);
   const nm=disp(n.i);const lbl=(on?"Hide ":"Show ")+({sib:"siblings",kids:"children",par:"parents"})[kind]+" of "+nm;
   const b=el("g",{class:"xbtn"+(on?" on":""),transform:`translate(${ax},${ay})`,"data-kind":kind,"data-for":n.i,"data-side":n.side||"","data-ax":ax,"data-ay":ay,"aria-expanded":on,role:"button",tabindex:0,"aria-label":lbl},g);
   el("circle",{r:16,fill:"transparent",class:"hit"},b);const v=el("g",{class:"vis"},b);el("circle",{r:9,class:"ring",filter:"url(#sh)"},v);
@@ -426,7 +431,7 @@ function render(keep){const {nodes,links}=layout(current,+sel.up.value,+sel.down
       const mn=Math.min(fx,...xs),mx=Math.max(fx,...xs);if(mx-mn>1) d+=`M${mn},${by}H${mx}`;
       for(const x of xs) d+=`M${x},${by}V${ky}`;el("path",{d,stroke:"#b5aa95","stroke-width":1.1,fill:"none","stroke-linejoin":"round"},gl)}}
   let x0=1e9,y0=1e9,x1=-1e9,y1=-1e9;
-  for(const n of nodes){if(n.role==="center") centerPt={x:X(n)+BW/2,y:Y(n.y)+BH/2};drawBox(gn,n.i,X(n),Y(n.y),{gold:n.i===you,you:n.i===you,sel:n.role==="center"&&n.i!==you});if(!og){if(n.sib) xbtn(gb,"sib",n);if(n.kid) xbtn(gb,"kids",n);if(n.par) xbtn(gb,"par",n)}x0=Math.min(x0,X(n));y0=Math.min(y0,Y(n.y));x1=Math.max(x1,X(n)+BW);y1=Math.max(y1,Y(n.y)+BH)}
+  for(const n of nodes){if(n.role==="center") centerPt={x:X(n)+BW/2,y:Y(n.y)+BH/2};drawBox(gn,n.i,X(n),Y(n.y),{gold:n.i===you,you:n.i===you,sel:n.role==="center"&&n.i!==you});if(!og){if(n.sib&&!EXS.has(n.i)){n.side=sideOf(n,nodes,null);SIDE.set(n.i,n.side)}if(n.sib) xbtn(gb,"sib",n);if(n.kid) xbtn(gb,"kids",n);if(n.par) xbtn(gb,"par",n)}x0=Math.min(x0,X(n));y0=Math.min(y0,Y(n.y));x1=Math.max(x1,X(n)+BW);y1=Math.max(y1,Y(n.y)+BH)}
   // generation labels
   bbox={x0:x0-50,y0:y0-84,x1:x1+50,y1:y1+60};if(!keep) fit(true)}
 function fit(anim){if(!bbox) return;const r=svg.getBoundingClientRect();TZ.fitBox(bbox,anim,document.body.classList.contains("og")?0:r.width<520?0.62:0.45,centerPt)}
@@ -457,7 +462,7 @@ document.addEventListener("click",e=>{const g=e.target.closest("[data-go]");if(g
   const ry=e.target.closest("[data-relyou]");if(ry&&you!=null){acA.set(you);acB.set(+ry.dataset.relyou);tab("rel");relate(you,+ry.dataset.relyou)}});
 function tab(t){document.querySelectorAll(".tabs button").forEach(b=>b.classList.toggle("on",b.dataset.t===t));document.querySelectorAll(".pane").forEach(p=>p.classList.toggle("on",p.id==="p-"+t))}
 document.querySelectorAll(".tabs button").forEach(b=>b.onclick=()=>tab(b.dataset.t));
-function select(i,noHash){if(i!==current){EXS.clear();EXK.clear();EXP.clear()}current=i;hidePath();render();personPane(i);if(!noHash) history.replaceState(null,"","#p="+i)}
+function select(i,noHash){if(i!==current){EXS.clear();EXK.clear();EXP.clear();SIDE.clear()}current=i;hidePath();render();personPane(i);if(!noHash) history.replaceState(null,"","#p="+i)}
 // ---------- relationship ----------
 function nbrs(i){const out=[];for(const f of P[i].fc) for(const p of [F[f].h,F[f].w]) if(p!=null) out.push([p,"parent",0]);
   for(const f of P[i].fs){const s=spouseIn(f,i);if(s!=null) out.push([s,"spouse",1]);for(const c of F[f].c) out.push([c,"child",0])}return out}
