@@ -136,7 +136,7 @@ td.n{text-align:right;font-variant-numeric:tabular-nums;color:var(--mute)}
 .stat b{display:block;font-family:var(--serif);font-size:28px;font-weight:600;line-height:1}
 .stat span{font-size:10.5px;letter-spacing:.12em;text-transform:uppercase;color:var(--mute)}
 select.field{width:100%;appearance:none;-webkit-appearance:none;padding:10px 14px;border:1px solid var(--rule-2);border-radius:10px;background:var(--card) url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='12' height='8'%3E%3Cpath d='M1 1l5 5 5-5' stroke='%23a8864a' fill='none' stroke-width='1.5'/%3E%3C/svg%3E") no-repeat right 14px center;cursor:pointer}
-.contrib{margin-top:22px;padding:14px 16px;border:1px solid var(--rule);border-radius:14px;background:var(--card)}.contrib h3{margin:0 0 8px}.contrib .links{display:flex;flex-wrap:wrap;gap:8px 18px}.contrib a{color:var(--gold);text-decoration:none;border-bottom:1px solid var(--gold-2);font-size:14px;padding:2px 0}.contrib a:hover{color:var(--ink)}
+.toplinks{margin-top:8px;display:flex;flex-wrap:wrap;align-items:center;gap:4px 16px;font-size:13px}.toplinks span{font-size:11px;letter-spacing:.12em;text-transform:uppercase;color:var(--mute)}.toplinks a{color:var(--gold);text-decoration:none;border-bottom:1px solid var(--gold-2);padding:1px 0}.toplinks a:hover{color:var(--ink)}body.og .toplinks{display:none}
 .foot{font-size:12.5px;color:var(--mute);margin-top:22px;line-height:1.55;font-family:var(--serif);font-size:15px;font-style:italic}
 svg text{font-family:var(--sans)}
 svg .nm{font-family:var(--serif);font-weight:600}
@@ -203,7 +203,7 @@ body.og #treeWrap:before{inset:0 40px 18px;border-radius:18px}
 </head>
 <body>
 <header>
-  <div class="brand"><div class="eyebrow" id="eyebrow"></div><h1 id="ttl"></h1><div class="subtitle" id="sub"></div></div>
+  <div class="brand"><div class="eyebrow" id="eyebrow"></div><h1 id="ttl"></h1><div class="subtitle" id="sub"></div><nav class="toplinks" id="contrib" aria-label="Help improve this tree"><span>Help improve</span><a id="lnkAncestry" href="https://www.ancestry.com/family-tree/tree/104891359/family" target="_blank" rel="noopener">Update on Ancestry ↗</a><a id="lnkAsk" href="mailto:vijaymd44@gmail.com?subject=Ancestry%20Tree%20edit%20access%20request&amp;body=Hi%20Vijay%2C%0A%0APlease%20give%20me%20editor%20access%20to%20the%20family%20tree%20on%20Ancestry%20(tree%20104891359).%0A%0AName%3A%20%5Byour%20name%5D%0AAncestry%20username%20or%20email%3A%20%5Byour%20Ancestry%20login%5D%0A%0AThanks!">Request permission to update</a></nav></div>
   <div class="ac search" id="acMain"><svg viewBox="0 0 24 24"><circle cx="11" cy="11" r="7"/><path d="M20 20l-3.5-3.5"/></svg><input id="q" type="search" placeholder="Search the family…" autocomplete="off" aria-label="Search people"></div>
   <div class="youbox" id="youBox"></div>
 </header>
@@ -579,7 +579,6 @@ function statsPane(){const sur=new Map();let m=0,f=0,u=0,ph=0,lv=0,withB=0,minB=
   h+=`<h3>Browse by surname</h3><select id="sur" class="field"><option value="">Choose a surname…</option>${list.map(([s,n])=>`<option value="${esc(s)}">${esc(s)} (${n})</option>`).join("")}</select><div id="surList" style="margin-top:10px"></div>`;
   h+=`<h3>Top surnames</h3><table>${list.slice(0,12).map(([s,n])=>`<tr><td><span class="lk" data-sur="${esc(s)}">${esc(s)}</span></td><td class="n">${n}</td></tr>`).join("")}</table>`;
   h+=`<p class="foot">Built ${esc(M.built)} from the GEDCOM export. ${M.public?`Public version: ${M.masked} of ${M.total} people are possibly living (born less than 100 years ago, or no birth year and no death record) and are shown only by first name with “(Living)”, without dates or places.`:"Private version: full names, dates and places. Please don’t share publicly."}</p>`;
-  h+=`<div class="contrib" id="contrib"><h3>Help improve this tree</h3><div class="links"><a id="lnkAncestry" href="https://www.ancestry.com/family-tree/tree/104891359/family" target="_blank" rel="noopener">Update on Ancestry ↗</a><a id="lnkAsk" href="mailto:vijaymd44@gmail.com?subject=Ancestry%20Tree%20edit%20access%20request&body=Hi%20Vijay%2C%0A%0APlease%20give%20me%20editor%20access%20to%20the%20family%20tree%20on%20Ancestry%20(tree%20104891359).%0A%0AName%3A%20%5Byour%20name%5D%0AAncestry%20username%20or%20email%3A%20%5Byour%20Ancestry%20login%5D%0A%0AThanks!">Request permission to update</a></div></div>`;
   $("#p-stats").innerHTML=h;
   const showSur=s=>{$("#sur").value=s;const ids=P.map((p,i)=>i).filter(i=>(P[i].s||(P[i].lv?"":"(no surname)"))===s).sort((a,b)=>disp(a).localeCompare(disp(b)));$("#surList").innerHTML=s?chips(ids):""};
   $("#sur").onchange=e=>showSur(e.target.value);
