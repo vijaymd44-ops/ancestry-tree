@@ -117,6 +117,13 @@ h3:after{content:"";flex:1;height:1px;background:var(--rule)}
 .rel{background:var(--card);border:1px solid var(--rule);border-radius:16px;padding:20px;margin-top:18px;box-shadow:var(--shadow);animation:fadeUp .4s var(--ease)}
 .rel .big{font-family:var(--serif);font-size:23px;font-weight:600;line-height:1.25;margin-bottom:8px}
 .rel .meta{font-size:12px;letter-spacing:.06em;text-transform:uppercase;color:var(--gold)}
+.paths{margin-top:14px;padding-top:12px;border-top:1px solid var(--rule)}
+.pnav{display:flex;align-items:center;gap:10px;font-size:12px;letter-spacing:.06em;text-transform:uppercase;color:var(--gold)}
+.pnav .pc{flex:1}.pnav button{width:30px;height:30px;border-radius:50%;border:1px solid var(--rule);background:var(--card);color:var(--ink);font-size:15px;cursor:pointer}.pnav button:disabled{opacity:.35;cursor:default}
+.plist{list-style:none;margin:8px 0 0;padding:0}.plist li{margin:4px 0}
+.plist button{width:100%;text-align:left;border:1px solid var(--rule);background:transparent;border-radius:10px;padding:8px 11px;font:inherit;font-size:13.5px;color:var(--ink-2);cursor:pointer;line-height:1.3}
+.plist button.on{border-color:var(--gold);background:#f8efd6;color:var(--ink)}.plist small{display:block;font-size:11px;color:var(--mute);letter-spacing:.04em;margin-top:2px}
+#pvNav{display:none;margin-top:8px}#pvNav.on{display:flex}
 .blood{margin-top:12px;padding-top:12px;border-top:1px solid var(--rule);font-size:14.5px;color:var(--ink-2)}
 ol.steps{list-style:none;padding:0;margin:14px 0 4px;counter-reset:s}
 ol.steps li{counter-increment:s;display:grid;grid-template-columns:24px 1fr;column-gap:10px;align-items:baseline;padding:7px 0;border-bottom:1px dotted var(--rule)}
@@ -228,7 +235,7 @@ body.og #treeWrap:before{inset:0 40px 18px;border-radius:18px}
       <button id="homeBtn" title="Back to you" aria-label="Home"><svg viewBox="0 0 24 24"><path d="M4 11l8-7 8 7M6 10v10h12V10"/></svg></button>
     </div>
     <div class="legend"><span><i style="background:var(--m);border-color:var(--m-edge)"></i>Male</span><span><i style="background:var(--f);border-color:var(--f-edge)"></i>Female</span><span><i style="background:#f8efd6;border-color:var(--gold)"></i>You</span><span><i style="background:var(--card);border-color:var(--ink);border-width:1.5px"></i>Selected</span></div>
-    <div id="pathView" aria-live="polite"><div class="pvhead"><div class="t"><div class="eyebrow">Kinship</div><h3 id="pvTitle"></h3></div><button class="btn" id="backTree"><svg viewBox="0 0 24 24"><path d="M15 6l-6 6 6 6"/></svg>Back to tree</button></div>
+    <div id="pathView" aria-live="polite"><div class="pvhead"><div class="t"><div class="eyebrow">Kinship</div><h3 id="pvTitle"></h3><div class="pnav" id="pvNav"><button data-pstep="-1" aria-label="Previous path">‹</button><span class="pc" id="pvCount"></span><button data-pstep="1" aria-label="Next path">›</button></div></div><button class="btn" id="backTree"><svg viewBox="0 0 24 24"><path d="M15 6l-6 6 6 6"/></svg>Back to tree</button></div>
       <svg id="pathSvg" role="img" aria-label="Relationship path chart"><g id="pvp"></g></svg>
       <details id="pathSteps"><summary>Step by step</summary><div id="pvSteps"></div></details></div>
     <svg id="tree" role="img" aria-label="Family tree view"><defs><filter id="sh" x="-20%" y="-20%" width="140%" height="160%"><feDropShadow dx="0" dy="2" stdDeviation="3" flood-color="#3c2d14" flood-opacity=".09"/></filter></defs><g id="vp"></g></svg>
@@ -238,7 +245,7 @@ body.og #treeWrap:before{inset:0 40px 18px;border-radius:18px}
     <div class="pane on" id="p-person"></div>
     <div class="pane" id="p-rel">
       <p class="lead">How are we related?</p>
-      <p class="yrs" style="margin-top:0">Choose two people. The shortest chain of parent, child and spouse links is shown; when routes tie, the one with fewer marriages is preferred.</p>
+      <p class="yrs" style="margin-top:0">Choose two people. The shortest chain of parent, child and spouse links is shown; blood lines are ranked first, and when several routes exist you can step through each one.</p>
       <div class="row"><label>From</label><div class="ac plain" id="acA"><input id="ra" placeholder="First person…" autocomplete="off"></div></div>
       <div class="row"><label>To</label><div class="ac plain" id="acB"><input id="rb" placeholder="Second person…" autocomplete="off"></div></div>
       <div class="row"><button class="btn" id="useSel">Use selected</button><button class="btn" id="swap">Swap</button><button class="btn pri" id="go">Find relationship</button></div>
@@ -491,6 +498,23 @@ function shortest(a,b){const dist=new Map([[a,0]]),mar=new Map([[a,0]]),prev=new
       else if(dist.get(y)===nd&&nm<mar.get(y)){mar.set(y,nm);prev.set(y,[x,t])}}}
   if(!dist.has(b)) return null;const path=[[b,null]];let y=b;while(y!==a){const [x,t]=prev.get(y);path[0][1]=t;path.unshift([x,null]);y=x}
   return path}
+function isBlood(path){let down=false;for(let k=1;k<path.length;k++){const t=path[k][1];if(t==="spouse") return false;if(t==="child") down=true;else if(down) return false}return true}
+function allPaths(a,b,max){const sp=shortest(a,b);if(!sp) return [];const bl=closestBlood(a,b);
+  const L=Math.min(14,Math.max(sp.length+1,bl?bl.s+1:0));// nodes allowed
+  const db=new Map([[b,0]]);{const q=[b];let h=0;while(h<q.length){const x=q[h++];for(const [y] of nbrs(x)) if(!db.has(y)){db.set(y,db.get(x)+1);q.push(y)}}}
+  const out=[],seen=new Set(),on=new Set([a]),cur=[[a,null]];let budget=200000;
+  (function dfs(x){if(--budget<0||out.length>400) return;if(x===b){out.push(cur.map(s=>s.slice()));return}
+    for(const [y,t] of nbrs(x)){if(on.has(y)||!db.has(y)||cur.length+db.get(y)>L) continue;
+      on.add(y);cur[cur.length-1][1]=t;cur.push([y,null]);dfs(y);cur.pop();cur[cur.length-1][1]=null;on.delete(y)}})(a);
+  // path entries are [node, linkTypeToNext]; convert to [node, linkTypeFromPrev] like shortest()
+  const conv=p=>p.map(([i],k)=>[i,k?p[k-1][1]:null]);
+  const kidOf=(c,x,y)=>{const ps=parentsOf(c);return ps.includes(x)&&ps.includes(y)};
+  const detour=p=>p.some(([y,t],k)=>t==="spouse"&&((k>=2&&kidOf(p[k-2][0],p[k-1][0],y))||(k+1<p.length&&kidOf(p[k+1][0],p[k-1][0],y))));
+  const res=[];for(const p0 of out){const p=conv(p0);if(detour(p)) continue;const d=describe(p).join("’s ");
+    const key=d;// one entry per distinct relationship wording
+    if(seen.has(key)) continue;seen.add(key);res.push({p,d,blood:isBlood(p),m:p.filter(s=>s[1]==="spouse").length})}
+  res.sort((x,y)=>(y.blood-x.blood)||(x.p.length-y.p.length)||(x.m-y.m));
+  return res.slice(0,max||8)}
 const ORD=["","first","second","third","fourth","fifth","sixth","seventh","eighth","ninth","tenth"];
 const ord=n=>ORD[n]||n+"th";
 const times=n=>n===1?"once":n===2?"twice":n+" times";
@@ -522,20 +546,29 @@ function stepText(path,k){const [i,t]=path[k];const prev=path[k-1][0];
 function relate(a,b){const out=$("#relOut");if(a==null||b==null){out.innerHTML=`<div class="rel">Choose both people from the suggestions.</div>`;return}
   if(a===b){out.innerHTML=`<div class="rel"><div class="big">That’s the same person.</div></div>`;return}
   track(`kinship/${P[a].n} → ${P[b].n}`,`Kinship: ${P[a].n} → ${P[b].n}`);
-  const path=shortest(a,b);const blood=closestBlood(a,b);
-  if(!path){out.innerHTML=`<div class="rel"><div class="big">No connection found</div>${esc(disp(a))} and ${esc(disp(b))} are not linked by any chain of parent, child or spouse records in this file.</div>`;return}
-  const parts=describe(path);const marriages=path.filter(s=>s[1]==="spouse").length;
-  const whose=a===you?"your":disp(a)+"’s";let sent=`${disp(b)} is ${whose} ${parts.join("’s ")}.`;
-  let h=`<div class="rel"><div class="big" id="relText">${esc(sent)}</div>`;
-  h+=`<div class="meta">${path.length-1} link${path.length>2?"s":""} · ${marriages?marriages+" marriage"+(marriages>1?"s":""):"blood relatives only"}</div>`;
+  const blood=closestBlood(a,b);const paths=allPaths(a,b,8);
+  if(!paths.length){out.innerHTML=`<div class="rel"><div class="big">No connection found</div>${esc(disp(a))} and ${esc(disp(b))} are not linked by any chain of parent, child or spouse records in this file.</div>`;return}
+  const whose=a===you?"your":disp(a)+"’s";
+  let h=`<div class="rel"><div class="big" id="relText"></div><div class="meta" id="relMeta"></div>`;
   if(blood){const cn=blood.anc.map(disp).join(" & ");const t=term(blood.a,blood.b,b);
     h+=`<div class="blood" id="bloodText"><b>Blood relationship.</b> ${esc(disp(b))} is ${esc(whose)} <b>${esc(t)}</b>. Common ancestor${blood.anc.length>1?"s":""}: ${esc(cn)} (${blood.a} generation${blood.a!==1?"s":""} up from ${a===you?"you":esc(disp(a))}, ${blood.b} up from ${esc(disp(b))}).</div>`;
     if(blood.a>=2&&blood.b>=2) h+=`<div class="yrs" style="margin-top:6px;font-size:13px">Cousin math: the smaller generation count (${Math.min(blood.a,blood.b)}) minus one gives the cousin degree (${ord(Math.min(blood.a,blood.b)-1)}); the difference (${Math.abs(blood.a-blood.b)}) is the number of times removed.</div>`}
   else h+=`<div class="blood" id="bloodText"><b>No blood relationship</b> found in this file (no shared ancestor).</div>`;
-  let st=`<ol class="steps" start="0"><li><span class="lk" data-go="${a}">${esc(disp(a))}</span></li>`;
-  for(let k=1;k<path.length;k++){const s=stepText(path,k);st+=`<li><span class="lk" data-go="${s.who}">${esc(disp(s.who))}</span> <span class="tag ${s.mar?"mar":""}">${esc(s.txt)}</span></li>`}
+  if(paths.length>1){h+=`<div class="paths" id="relPaths"><div class="pnav"><button data-pstep="-1" aria-label="Previous path">‹</button><span class="pc" id="relCount"></span><button data-pstep="1" aria-label="Next path">›</button></div><ol class="plist">`;
+    paths.forEach((q,k)=>{h+=`<li><button data-pidx="${k}"><span>${k+1}. ${esc(q.d)}</span><small>${q.blood?"Blood line":q.m?q.m+" marriage"+(q.m>1?"s":""):"Via a shared child"} · ${q.p.length-1} links</small></button></li>`});h+=`</ol></div>`}
   h+=`<div class="row" style="margin-top:14px"><button class="btn" id="showPath">Show chart</button></div></div>`;out.innerHTML=h;
-  $("#pvSteps").innerHTML=st+"</ol>";$("#pvTitle").textContent=sent;pathChart(path,blood);showPath()}
+  REL={a,b,paths,blood,whose,idx:0};showRelPath(0);showPath()}
+let REL=null;
+function showRelPath(k){if(!REL) return;const n=REL.paths.length;k=(k+n)%n;REL.idx=k;const {a,b,blood,whose}=REL,q=REL.paths[k],path=q.p;
+  const sent=`${disp(b)} is ${whose} ${q.d}.`;$("#relText").textContent=sent;
+  $("#relMeta").textContent=`${path.length-1} link${path.length>2?"s":""} · ${q.blood?"blood line":q.m?q.m+" marriage"+(q.m>1?"s":""):"via a shared child"}`;
+  const lbl=`Path ${k+1} of ${n}`;if($("#relCount")) $("#relCount").textContent=lbl;$("#pvCount").textContent=lbl+(q.blood?" · blood line":"");$("#pvNav").classList.toggle("on",n>1);
+  document.querySelectorAll(".plist button").forEach(x=>x.classList.toggle("on",+x.dataset.pidx===k));
+  let st=`<ol class="steps" start="0"><li><span class="lk" data-go="${a}">${esc(disp(a))}</span></li>`;
+  for(let j=1;j<path.length;j++){const s=stepText(path,j);st+=`<li><span class="lk" data-go="${s.who}">${esc(disp(s.who))}</span> <span class="tag ${s.mar?"mar":""}">${esc(s.txt)}</span></li>`}
+  $("#pvSteps").innerHTML=st+"</ol>";$("#pvTitle").textContent=sent;pathChart(path,blood);if(pathOn()) requestAnimationFrame(()=>fitPath(true))}
+document.addEventListener("click",e=>{const s=e.target.closest("[data-pstep]");if(s&&REL){showRelPath(REL.idx+ +s.dataset.pstep);return}
+  const i=e.target.closest("[data-pidx]");if(i&&REL){showRelPath(+i.dataset.pidx);showPath()}});
 function showPath(){const tw=$("#treeWrap");tw.classList.add("showpath");requestAnimationFrame(()=>fitPath(false));if(innerWidth<=900) tw.scrollIntoView({behavior:"smooth",block:"start"})}
 function hidePath(){$("#treeWrap").classList.remove("showpath")}
 function pathChart(path,blood){const s=$("#pvp");s.innerHTML="";
@@ -619,7 +652,7 @@ youBox();select(start,true);if(you!=null) acA.set(you);
 if(relTo!=null&&you==null) acA.set(relTo);
 if(you==null&&!browse&&hashP==null&&!document.body.classList.contains("og")) showWelcome();
 function panTo(i){const n=vp.querySelector(`.node[data-id="${i}"]`);if(!n) return;const m=n.getAttribute("transform").match(/translate\(([-\d.]+),([-\d.]+)\)/);const r=svg.getBoundingClientRect();view.tx=r.width/2-(+m[1]+BW/2)*view.k;view.ty=r.height/2-(+m[2]+BH/2)*view.k;TZ.apply()}
-window.FT={panTo,expanded:()=>({sib:[...EXS],kids:[...EXK],par:[...EXP]}),get pathZoom(){return PZ.view},get treeZoom(){return TZ.view},setYou,get you(){return you},get browse(){return browse},get relTo(){return relTo},home:M.home,select,relate,search,shortest,describe,closestBlood,term,find:n=>P.findIndex(p=>p.n===n),get current(){return current}};
+window.FT={panTo,allPaths,get rel(){return REL},showRelPath,expanded:()=>({sib:[...EXS],kids:[...EXK],par:[...EXP]}),get pathZoom(){return PZ.view},get treeZoom(){return TZ.view},setYou,get you(){return you},get browse(){return browse},get relTo(){return relTo},home:M.home,select,relate,search,shortest,describe,closestBlood,term,find:n=>P.findIndex(p=>p.n===n),get current(){return current}};
 })();
 </script>
 <script data-goatcounter="https://ancestry-tree.goatcounter.com/count" async src="//gc.zgo.at/count.js"></script>
